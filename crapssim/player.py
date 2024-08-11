@@ -1,3 +1,5 @@
+import numpy as np
+
 class Player(object):
     """
     Player standing at the craps table
@@ -19,9 +21,14 @@ class Player(object):
         Sum of bet value for the player
     """
 
-    def __init__(self, bankroll, bet_strategy=None, name="Player"):
+    def __init__(self, bankroll, bet_strategy=None, name="Player", unit=5, win_limit=300, max_shooters=10):
+        self.starting_bankroll = bankroll
         self.bankroll = bankroll
         self.bet_strategy = bet_strategy
+        self.unit = unit
+        self.win_limit = win_limit
+        # TODO: Set max_shooter limit per player
+        # self.max_shooters = max_shooters
         self.name = name
         self.bets_on_table = []
         self.total_bet_amount = 0
@@ -77,9 +84,16 @@ class Player(object):
             status, win_amount = b._update_bet(table_object, dice_object)
 
             if status == "win":
-                self.bankroll += win_amount + b.bet_amount
-                self.total_bet_amount -= b.bet_amount
-                self.bets_on_table.remove(b)
+                if 'Place' in b.name:
+                    self.bankroll += win_amount
+                elif 'Lay' in b.name:
+                    self.bankroll += win_amount - np.ceil(0.05 * b.bet_amount)
+                else:
+                    self.bankroll += win_amount + b.bet_amount
+                    self.total_bet_amount -= b.bet_amount
+                    self.bets_on_table.remove(b)
+                
+                
                 if verbose:
                     print(f"{self.name} won ${win_amount} on {b.name} bet!")
             elif status == "lose":
@@ -96,3 +110,6 @@ class Player(object):
 
             info[b.name] = {"status": status, "win_amount": win_amount}
         return info
+
+    def has_not_reached_bank_limit(self):
+        return self.bankroll + self.total_bet_amount < self.win_limit

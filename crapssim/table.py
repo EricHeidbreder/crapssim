@@ -1,5 +1,7 @@
 from crapssim.dice import Dice
 from crapssim.player import Player
+import os
+import datetime
 
 
 class Table(object):
@@ -45,7 +47,11 @@ class Table(object):
         self.payouts = {"fielddouble": [2, 12], "fieldtriple": []}
         self.pass_rolls = 0
         self.last_roll = None
+        self.last_roll_point_status = None
         self.n_shooters = 1
+        self.n_rounds = 1
+        self.shooter_rolls = 0
+        self.point_rolls = 0
 
     @classmethod
     def with_payouts(cls, **kwagrs):
@@ -76,56 +82,92 @@ class Table(object):
         runout : bool
             If true, continue past max_rolls until player has no more bets on the table
         """
-        # self.dice = Dice()
-        if verbose:
-            print("Welcome to the Craps Table!")
 
-        # make sure at least one player is at table
-        if not self.players:
-            self.add_player(Player(500, "Player1"))
-        if verbose:
-            print(f"Initial players: {[p.name for p in self.players]}")
+        # Create output folder
+        output_folder_base = 'output'
+        output_folder_simulations_roll_level = os.path.join(output_folder_base, 'simulations_roll_level')
+        final_folder = os.path.join(output_folder_simulations_roll_level)
+        outfile_name = f"simulation_roll_level.txt"
+        outfile_path = os.path.join(final_folder, outfile_name)
 
-        # maybe wrap this into update table or something
-        self.total_player_cash = sum(
-            [p.total_bet_amount + p.bankroll for p in self.players]
-        )
-
-        continue_rolling = True
-        while continue_rolling:
-
-            # players make their bets
-            self._add_player_bets()
-            for p in self.players:
-                bets = [
-                    f"{b.name}{b.subname}, ${b.bet_amount}" for b in p.bets_on_table
-                ]
-                if verbose:
-                    print(f"{p.name}'s current bets: {bets}")
-
-            self.dice.roll()
-            self._update_player_bets(self.dice, verbose)
-            self._update_table(self.dice)
+        if os.path.exists(outfile_path):
+            write_mode = "a+"
+        else:
+            write_mode = "w"
+            os.makedirs(final_folder, exist_ok=True)
+            # os.mkdir(outfile_path)
+        # We're not going to write until later, but opening the folder now to avoid needing to open it for each row we write
+        with open(outfile_path, write_mode) as f:
+            # write_mode == 'w' means this is a new file, so we'll need to write this first
+            if write_mode == "w":
+                f.write('sim_run_timestamp|shooter|round|roll_num|strategy_name|max_shooters|player_name|betting_unit|win_limit|starting_bankroll|current_bankroll|n_pass_rolls|n_shooter_rolls|bets_on|total_bet_amount|dice_result')
+                f.write(str('\n'))
+            
+            # self.dice = Dice()
+            current_time = datetime.datetime.now()
             if verbose:
-                print("")
-                print("Dice out!")
-                print(f"Shooter rolled {self.dice.total} {self.dice.result}")
-                print(f"Point is {self.point.status} ({self.point.number})")
-                print(f"Total Player Cash is ${self.total_player_cash}")
+                print("Welcome to the Craps Table!")
 
-            # evaluate the stopping condition
-            if runout:
-                continue_rolling = (
-                    self.dice.n_rolls < max_rolls
-                    and self.n_shooters <= max_shooter
-                    and self.total_player_cash > 0
-                ) or self.player_has_bets
-            else:
-                continue_rolling = (
-                    self.dice.n_rolls < max_rolls
-                    and self.n_shooters <= max_shooter
-                    and self.total_player_cash > 0
-                )
+            # make sure at least one player is at table
+            if not self.players:
+                self.add_player(Player(500, "Player1", unit=5))
+            if verbose:
+                print(f"Initial players: {[p.name for p in self.players]}")
+
+            # maybe wrap this into update table or something
+            self.total_player_cash = sum(
+                [p.total_bet_amount + p.bankroll for p in self.players]
+            )
+
+            continue_rolling = True
+            while continue_rolling:
+
+                # players make their bets
+                self._add_player_bets()
+                for p in self.players:
+                    bets = [
+                        f"{b.name}{b.subname}, ${b.bet_amount}" for b in p.bets_on_table
+                    ]
+                    if verbose:
+                        print(f"{p.name}'s current bets: {bets}")
+
+                self.dice.roll()
+                self._update_player_bets(self.dice, verbose)
+                self._update_table(self.dice)
+                if verbose:
+                    print("")
+                    print("Dice out!")
+                    print(f"Shooter rolled {self.dice.total} {self.dice.result}")
+                    print(f"Point is {self.point.status} ({self.point.number})")
+                    print(f"Total Player Cash is ${self.total_player_cash}")
+
+                # evaluate the stopping condition
+                if runout:
+                    continue_rolling = (
+                        self.dice.n_rolls < max_rolls
+                        and self.n_shooters <= max_shooter
+                        and self.total_player_cash > 0
+                    ) or self.player_has_bets
+                else:
+                    continue_rolling = (
+                        self.dice.n_rolls < max_rolls
+                        and self.n_shooters <= max_shooter
+                        and self.total_player_cash > 0
+                    )
+
+                # Store row of data
+                for p in self.players:
+                    strategy_name = p.bet_strategy.__name__
+                    starting_bankroll = p.starting_bankroll
+                    bets = [
+                        f"{b.name}{b.subname}, ${b.bet_amount}" for b in p.bets_on_table
+                    ]
+
+
+                    # Write the headers
+                    f.write(f'{current_time}|{self.n_shooters}|{self.n_rounds}|{self.dice.n_rolls}|{strategy_name}|{max_shooter}|{p.name}|{p.unit}|{p.win_limit}|{starting_bankroll}|{p.bankroll}|{self.pass_rolls}|{self.shooter_rolls}|{bets}|{p.total_bet_amount}|{self.dice.total}')
+                    f.write(str('\n'))
+
 
     def _add_player_bets(self):
         """ Implement each player's betting strategy """
@@ -133,7 +175,7 @@ class Table(object):
         """ TODO: Make the unit parameter specific to each player, and make it more general """
         for p in self.players:
             self.strat_info[p] = p._add_strategy_bets(
-                self, unit=5, strat_info=self.strat_info[p]
+                self, strat_info=self.strat_info[p]
             )  # unit = 10 to change unit
             # TODO: add player.strat_kwargs as optional parameter (currently manually changed in CrapsTable)
 
@@ -147,11 +189,22 @@ class Table(object):
     def _update_table(self, dice):
         """ update table attributes based on previous dice roll """
         self.pass_rolls += 1
+        self.shooter_rolls += 1
         if self.point == "On" and dice.total == 7:
             self.n_shooters += 1
+            self.shooter_rolls = 0
+            self.point_rolls = 0
         if self.point == "On" and (dice.total == 7 or dice.total == self.point.number):
             self.pass_rolls = 0
+            self.n_rounds += 1
+            self.point_rolls = 0
+        if self.point == "Off" and (dice.total in (2,3,7,11,12)):
+            self.n_rounds += 1
+            self.point_rolls = 0
+        if self.point == "On" and dice.total != 7:
+            self.point_rolls += 1
 
+        self.last_roll_point_status = self.point.status # Need to store the last point status for resetting triple lux strategy bets upon losing
         self.point.update(self.dice)
         self.total_player_cash = sum(
             [p.total_bet_amount + p.bankroll for p in self.players]
@@ -201,50 +254,61 @@ class _Point(object):
 
 if __name__ == "__main__":
     import sys
+    import os
 
     # import strategy
     from crapssim import strategy
 
-    sim = False
-    printout = True
+    sim = True
+    printout = False
 
-    n_sim = 100
-    n_roll = 144
-    n_shooter = 2
-    bankroll = 1000
-    strategy = strategy.dicedoctor
-    strategy_name = "dicedoctor"  # don't include any "_" in this
+    n_sim = 1000
+    n_roll = float('inf')
+    n_shooter_list = list(range(15))
+    bankroll_list = [200]
+    strategy = strategy.triplelux68_banklimit
+    strategy_name = "triplelux68_banklimit"  # don't include any "_" in this
     runout = True
     runout_str = "-runout" if runout else ""
 
-    if sim:
-        # Run simulation of n_roll rolls (estimated rolls/hour with 5 players) 1000 times
-        outfile_name = f"./output/simulations/{strategy_name}_sim-{n_sim}_roll-{n_roll}_br-{bankroll}{runout_str}.txt"
-        with open(outfile_name, "w") as f_out:
-            f_out.write("total_cash,n_rolls")
-            f_out.write(str("\n"))
-            for i in range(n_sim):
-                table = Table()
-                table.add_player(Player(bankroll, strategy))
-                table.run(n_roll, n_shooter, verbose=False, runout=runout)
-                out = f"{table.total_player_cash},{table.dice.n_rolls}"
-                f_out.write(str(out))
-                f_out.write(str("\n"))
+    for bankroll in bankroll_list:
+        for n_shooter in n_shooter_list:
+            if sim:
+                # Run simulation of n_roll rolls (estimated rolls/hour with 5 players) 1000 times
+                os.makedirs('output', exist_ok=True)
+                os.makedirs('output/simulations', exist_ok=True)
+                os.makedirs(f'output/simulations/{strategy_name}/bankroll_{bankroll}/shooters_{n_shooter}', exist_ok=True)
+                outfile_name = f"./output/simulations/{strategy_name}/bankroll_{bankroll}/shooters_{n_shooter}/{strategy_name}_sim-{n_sim}_roll-{n_roll}_br-{bankroll}{runout_str}.txt"
+                if os.path.exists(outfile_name):
+                    write_mode = "a+"
+                else:
+                    write_mode = "w"
+                with open(outfile_name, write_mode) as f_out:
+                    if write_mode == "w":
+                        f_out.write("total_cash,n_rolls")
+                        f_out.write(str("\n"))
+                    for i in range(n_sim):
+                        table = Table()
+                        table.add_player(Player(bankroll, strategy))
+                        table.run(n_roll, n_shooter, verbose=False, runout=runout)
+                        out = f"{table.total_player_cash},{table.dice.n_rolls}"
+                        f_out.write(str(out))
+                        f_out.write(str("\n"))
 
-    if printout:
-        # Run one simulation with verbose=True to check strategy
-        outfile_name = f"./output/printout/{strategy_name}_roll-{n_roll}_br-{bankroll}{runout_str}.txt"
-        with open(outfile_name, "w") as f_out:
-            sys.stdout = f_out
-            table = Table()
-            table.add_player(Player(bankroll, strategy))
-            table.run(n_roll, verbose=True)
-            # out = table.total_player_cash
-            # f_out.write(str(out))
-            # f_out.write(str('\n'))
+            if printout:
+                # Run one simulation with verbose=True to check strategy
+                outfile_name = f"./output/printout/{strategy_name}_roll-{n_roll}_br-{bankroll}{runout_str}.txt"
+                with open(outfile_name, "w") as f_out:
+                    sys.stdout = f_out
+                    table = Table()
+                    table.add_player(Player(bankroll, strategy))
+                    table.run(n_roll, verbose=True)
+                    # out = table.total_player_cash
+                    # f_out.write(str(out))
+                    # f_out.write(str('\n'))
 
-    sys.stdout = sys.__stdout__  # reset stdout
+            sys.stdout = sys.__stdout__  # reset stdout
 
-    # table = Table().with_payouts(fielddouble=[2], fieldtriple=[12])
-    # print(table)
-    # print(table.payouts)
+            # table = Table().with_payouts(fielddouble=[2], fieldtriple=[12])
+            # print(table)
+            # print(table.payouts)

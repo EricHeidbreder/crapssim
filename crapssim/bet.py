@@ -1,3 +1,5 @@
+from decimal import ROUND_UP
+import numpy as np
 from crapssim.dice import Dice
 
 
@@ -117,6 +119,40 @@ class Odds(Bet):
             self.payoutratio = 6 / 5
 
 
+
+class Lay4(Bet):
+    def __init__(self, bet_amount):
+        self.name = "Lay4"
+        self.winning_numbers = [7]
+        self.losing_numbers = [4]
+        self.payoutratio = 1 / 2
+        super().__init__(bet_amount)
+
+class Lay10(Bet):
+    def __init__(self, bet_amount):
+        self.name = "Lay10"
+        self.winning_numbers = [7]
+        self.losing_numbers = [10]
+        self.payoutratio = 1 / 2
+        super().__init__(bet_amount)
+
+class Lay6(Bet):
+    def __init__(self, bet_amount):
+        self.name = "Lay6"
+        self.winning_numbers = [7]
+        self.losing_numbers = [6]
+        self.payoutratio = 5 / 6
+        super().__init__(bet_amount)
+
+class Lay8(Bet):
+    def __init__(self, bet_amount):
+        self.name = "Lay8"
+        self.winning_numbers = [7]
+        self.losing_numbers = [8]
+        self.payoutratio = 5 / 6
+        super().__init__(bet_amount)
+
+
 """
 Place Bets on 4,5,6,8,9,10
 """
@@ -184,7 +220,26 @@ class Place10(Place):
         self.payoutratio = 9 / 5
         super().__init__(bet_amount)
 
+class PlaceWorking(Bet):
+    def _update_bet(self, table_object, dice_object):
+        return super()._update_bet(table_object, dice_object)
 
+class Place6Working(PlaceWorking):
+    def __init__(self, bet_amount):
+        self.name = "Place6Working"
+        self.winning_numbers = [6]
+        self.losing_numbers = [7]
+        self.payoutratio = 7 / 6
+        super().__init__(bet_amount)
+
+
+class Place8Working(PlaceWorking):
+    def __init__(self, bet_amount):
+        self.name = "Place8Working"
+        self.winning_numbers = [8]
+        self.losing_numbers = [7]
+        self.payoutratio = 7 / 6
+        super().__init__(bet_amount)
 """
 Field bet
 """
@@ -225,6 +280,53 @@ class Field(Bet):
             status = "lose"
 
         return status, win_amount
+
+"""
+Hardway bets
+"""
+
+class Hard6(Bet):
+    def __init__(self, bet_amount):
+        self.name = "Hard6"
+        self.winning_numbers = [3, 3]
+        self.losing_numbers = [6, 7]
+        self.payoutratio = 9
+        super().__init__(bet_amount)
+
+    def _update_bet(self, table_object, dice_object):
+        status = None
+        win_amount = 0
+
+        if set(dice_object.result) == set(self.winning_numbers):
+            status = "win"
+            win_amount = self.payoutratio * self.bet_amount
+        elif dice_object.total in self.losing_numbers:
+            status = "lose"
+
+        return status, win_amount
+    
+class Hard8(Hard6):
+    def __init__(self, bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hard8"
+        self.winning_numbers = [4, 4]
+        self.losing_numbers = [8, 7]
+
+
+class Hard4(Hard6):
+    def __init__(self, bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hard4"
+        self.winning_numbers = [2, 2]
+        self.losing_numbers = [4, 7]
+        self.payoutratio = 7
+
+class Hard10(Hard4):
+    def __init__(self, bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hard10"
+        self.winning_numbers = [5, 5]
+        self.losing_numbers = [10, 7]
 
 
 """
@@ -283,3 +385,117 @@ class LayOdds(Bet):
             self.payoutratio = 2 / 3
         elif self.losing_numbers == [6] or self.losing_numbers == [8]:
             self.payoutratio = 5 / 6
+
+
+"""
+Hop Bets
+"""
+
+############# TOTAL 7 ###############
+
+class Hop61(Bet):
+    def __init__(self,bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hop61"
+        self.winning_numbers = [6, 1]
+        self.losing_numbers = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12]
+        self.payoutratio = 15
+
+    def _update_bet(self, table_object, dice_object):
+        status = None
+        win_amount = 0
+
+        # Hops need to match the result exactly, so the two dice need to equal [2,3]
+        if sorted(dice_object.result) == sorted(self.winning_numbers):
+            status = "win"
+            win_amount = self.payoutratio * self.bet_amount
+        elif dice_object.total in self.losing_numbers:
+            status = "lose"
+
+        return status, win_amount
+
+class Hop52(Bet):
+    def __init__(self,bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hop52"
+        self.winning_numbers = [5, 2]
+        self.losing_numbers = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12]
+        self.payoutratio = 15
+
+    def _update_bet(self, table_object, dice_object):
+        status = None
+        win_amount = 0
+
+        # Hops need to match the result exactly, so the two dice need to equal [2,3]
+        if sorted(dice_object.result) == sorted(self.winning_numbers):
+            status = "win"
+            win_amount = self.payoutratio * self.bet_amount
+        elif dice_object.total in self.losing_numbers:
+            status = "lose"
+
+        return status, win_amount
+
+class Hop43(Bet):
+    def __init__(self,bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hop43"
+        self.winning_numbers = [4, 3]
+        self.losing_numbers =[2, 3, 4, 5, 6, 8, 9, 10, 11, 12]
+        self.payoutratio = 15
+
+    def _update_bet(self, table_object, dice_object):
+        status = None
+        win_amount = 0
+
+        # Hops need to match the result exactly, so the two dice need to equal [2,3]
+        if sorted(dice_object.result) == sorted(self.winning_numbers):
+            status = "win"
+            win_amount = self.payoutratio * self.bet_amount
+        elif dice_object.total in self.losing_numbers:
+            status = "lose"
+
+        return status, win_amount
+
+###### Total 5 ##########
+
+class Hop41(Bet):
+    def __init__(self,bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hop41"
+        self.winning_numbers = [4, 1]
+        self.losing_numbers = [2, 3, 4, 6, 7, 8, 9, 10, 11, 12]
+        self.payoutratio = 15
+
+    def _update_bet(self, table_object, dice_object):
+        status = None
+        win_amount = 0
+
+        # Hops need to match the result exactly, so the two dice need to equal [2,3]
+        if sorted(dice_object.result) == sorted(self.winning_numbers):
+            status = "win"
+            win_amount = self.payoutratio * self.bet_amount
+        elif dice_object.total in self.losing_numbers:
+            status = "lose"
+
+        return status, win_amount
+
+class Hop32(Bet):
+    def __init__(self,bet_amount):
+        super().__init__(bet_amount)
+        self.name = "Hop32"
+        self.winning_numbers = [2, 3]
+        self.losing_numbers = [2, 3, 4, 6, 7, 8, 9, 10, 11, 12]
+        self.payoutratio = 15
+
+    def _update_bet(self, table_object, dice_object):
+        status = None
+        win_amount = 0
+
+        # Hops need to match the result exactly, so the two dice need to equal [2,3]
+        if sorted(dice_object.result) == sorted(self.winning_numbers):
+            status = "win"
+            win_amount = self.payoutratio * self.bet_amount
+        elif dice_object.total in self.losing_numbers:
+            status = "lose"
+
+        return status, win_amount
